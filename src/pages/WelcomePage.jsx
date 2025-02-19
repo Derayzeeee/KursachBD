@@ -1,15 +1,22 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import '../Styles/WelcomePage.css';
+import { Box, Typography } from '@mui/material';
 
 const WelcomePage = () => {
   return (
-    <div className="welcome-container">
-      <div className="welcome-content">
-        <h1>Добро пожаловать!</h1>
-        <p>Ваше здоровье - наш главный приоритет.</p>
-      </div>
-    </div>
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      minHeight: '80vh' 
+    }}>
+      <Typography variant="h2" component="h1" gutterBottom>
+        Автосервис
+      </Typography>
+      <Typography variant="h5" color="textSecondary">
+        Система управления автосервисом
+      </Typography>
+    </Box>
   );
 };
 

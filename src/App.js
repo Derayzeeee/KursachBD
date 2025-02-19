@@ -9,20 +9,20 @@ import {
   Box,
   Divider
 } from '@mui/material';
-import MedicationIcon from '@mui/icons-material/Medication';
+import BuildIcon from '@mui/icons-material/Build';
 import PeopleIcon from '@mui/icons-material/People';
-import DescriptionIcon from '@mui/icons-material/Description';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
+import ReceiptIcon from '@mui/icons-material/Receipt';
+import InventoryIcon from '@mui/icons-material/Inventory';
 import { ThemeProvider } from '@mui/material/styles';
 import theme from './theme';
 
 import WelcomePage from './pages/WelcomePage';
-import Medicines from './pages/Medicines';
+import Services from './pages/Services';
 import Clients from './pages/Clients';
-import Recipes from './pages/Recipes';
-import Sales from './pages/Sales';
-import Supplies from './pages/Supplies';
+import Vehicles from './pages/Vehicles';
+import Orders from './pages/Orders';
+import Inventory from './pages/Inventory';
 import Logo from './components/Logo';
 
 const drawerWidth = 250;
@@ -82,11 +82,11 @@ function Navigation({ menuItems }) {
 
 function App() {
   const menuItems = [
-    { text: 'Препараты', icon: <MedicationIcon />, path: '/medicines' },
+    { text: 'Услуги', icon: <BuildIcon />, path: '/services' },
     { text: 'Клиенты', icon: <PeopleIcon />, path: '/clients' },
-    { text: 'Рецепты', icon: <DescriptionIcon />, path: '/recipes' },
-    { text: 'Продажи', icon: <ShoppingCartIcon />, path: '/sales' },
-    { text: 'Поставки', icon: <LocalShippingIcon />, path: '/supplies' }
+    { text: 'Автомобили', icon: <DirectionsCarIcon />, path: '/vehicles' },
+    { text: 'Заказы', icon: <ReceiptIcon />, path: '/orders' },
+    { text: 'Склад', icon: <InventoryIcon />, path: '/inventory' }
   ];
 
   return (
@@ -136,11 +136,11 @@ function App() {
           >
             <Routes>
               <Route path="/" element={<WelcomePage />} />
-              <Route path="/medicines" element={<Medicines />} />
+              <Route path="/services" element={<Services />} />
               <Route path="/clients" element={<Clients />} />
-              <Route path="/recipes" element={<Recipes />} />
-              <Route path="/sales" element={<Sales />} />
-              <Route path="/supplies" element={<Supplies />} />
+              <Route path="/vehicles" element={<Vehicles />} />
+              <Route path="/orders" element={<Orders />} />
+              <Route path="/inventory" element={<Inventory />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Box>
