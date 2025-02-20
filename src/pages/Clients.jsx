@@ -153,7 +153,7 @@ const Clients = () => {
                 <TableCell>{client.phone}</TableCell>
                 <TableCell>{client.email}</TableCell>
                 <TableCell>{client.address}</TableCell>
-                <TableCell>{new Date(client.registrationDate).toLocaleDateString('ru-RU')}</TableCell>
+                <TableCell>{new Date(client.created_at).toLocaleDateString('ru-RU')}</TableCell>
                 <TableCell>{client.preferredContactMethod}</TableCell>
                 <TableCell>
                   <IconButton onClick={() => handleEdit(client)} title="Редактировать">
@@ -217,8 +217,8 @@ const Clients = () => {
             InputLabelProps={{
               shrink: true,
             }}
-            value={currentClient.registrationDate}
-            onChange={(e) => setCurrentClient({ ...currentClient, registrationDate: e.target.value })}
+            value={currentClient.created_at}
+            onChange={(e) => setCurrentClient({ ...currentClient, created_at: e.target.value })}
           />
           <TextField
             margin="dense"
