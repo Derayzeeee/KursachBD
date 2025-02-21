@@ -48,6 +48,48 @@ function initDatabase() {
         price REAL NOT NULL
       )
     `);
+
+    // Vehicles table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS vehicles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        make TEXT NOT NULL,
+        model TEXT NOT NULL,
+        year INTEGER NOT NULL,
+        licensePlate TEXT NOT NULL,
+        vin TEXT NOT NULL,
+        clientId INTEGER NOT NULL,
+        FOREIGN KEY (clientId) REFERENCES clients (id)
+      )
+    `);
+
+    // Inventory (parts) table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS inventory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        quantity INTEGER NOT NULL,
+        minQuantity INTEGER NOT NULL,
+        price REAL NOT NULL,
+        supplier TEXT NOT NULL
+      )
+    `);
+
+    // Orders table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vehicleId INTEGER NOT NULL,
+        serviceId INTEGER NOT NULL,
+        date DATE NOT NULL,
+        status TEXT NOT NULL,
+        totalPrice REAL NOT NULL,
+        notes TEXT,
+        FOREIGN KEY (vehicleId) REFERENCES vehicles (id),
+        FOREIGN KEY (serviceId) REFERENCES services (id)
+      )
+    `);
   });
 }
 
@@ -334,6 +376,443 @@ app.delete('/api/services/:id', (req, res) => {
       return;
     }
     res.json({ success: true, message: 'Service deleted successfully' });
+  });
+});
+
+// VEHICLES ENDPOINTS
+
+// Get all vehicles with client names
+app.get('/api/vehicles', (req, res) => {
+  const sql = `
+    SELECT 
+      vehicles.*,
+      clients.name as clientName
+    FROM vehicles
+    LEFT JOIN clients ON vehicles.clientId = clients.id
+  `;
+  
+  db.all(sql, [], (err, rows) => {
+    if (err) {
+      console.error('Error fetching vehicles:', err);
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json(rows);
+  });
+});
+
+// Create a new vehicle
+app.post('/api/vehicles', (req, res) => {
+  const {
+    make,
+    model,
+    year,
+    licensePlate,
+    vin,
+    clientId
+  } = req.body;
+
+  const sql = `
+    INSERT INTO vehicles (
+      make,
+      model,
+      year,
+      licensePlate,
+      vin,
+      clientId
+    ) VALUES (?, ?, ?, ?, ?, ?)
+  `;
+
+  db.run(
+    sql,
+    [make, model, year, licensePlate, vin, clientId],
+    function(err) {
+      if (err) {
+        console.error('Error creating vehicle:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      const selectSql = `
+        SELECT 
+          vehicles.*,
+          clients.name as clientName
+        FROM vehicles
+        LEFT JOIN clients ON vehicles.clientId = clients.id
+        WHERE vehicles.id = ?
+      `;
+
+      db.get(
+        selectSql,
+        [this.lastID],
+        (err, row) => {
+          if (err) {
+            console.error('Error fetching created vehicle:', err);
+            res.status(500).json({ error: err.message });
+            return;
+          }
+          res.json(row);
+        }
+      );
+    }
+  );
+});
+
+// Update a vehicle
+app.put('/api/vehicles/:id', (req, res) => {
+  const {
+    make,
+    model,
+    year,
+    licensePlate,
+    vin,
+    clientId
+  } = req.body;
+
+  const sql = `
+    UPDATE vehicles SET 
+      make = ?,
+      model = ?,
+      year = ?,
+      licensePlate = ?,
+      vin = ?,
+      clientId = ?
+    WHERE id = ?
+  `;
+
+  db.run(
+    sql,
+    [make, model, year, licensePlate, vin, clientId, req.params.id],
+    (err) => {
+      if (err) {
+        console.error('Error updating vehicle:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      const selectSql = `
+        SELECT 
+          vehicles.*,
+          clients.name as clientName
+        FROM vehicles
+        LEFT JOIN clients ON vehicles.clientId = clients.id
+        WHERE vehicles.id = ?
+      `;
+
+      db.get(
+        selectSql,
+        [req.params.id],
+        (err, row) => {
+          if (err) {
+            console.error('Error fetching updated vehicle:', err);
+            res.status(500).json({ error: err.message });
+            return;
+          }
+          if (!row) {
+            res.status(404).json({ error: 'Vehicle not found' });
+            return;
+          }
+          res.json(row);
+        }
+      );
+    }
+  );
+});
+
+// Delete a vehicle
+app.delete('/api/vehicles/:id', (req, res) => {
+  db.run('DELETE FROM vehicles WHERE id = ?', req.params.id, (err) => {
+    if (err) {
+      console.error('Error deleting vehicle:', err);
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json({ success: true, message: 'Vehicle deleted successfully' });
+  });
+});
+
+// INVENTORY ENDPOINTS
+
+// Get all parts
+app.get('/api/inventory', (req, res) => {
+  db.all('SELECT * FROM inventory', [], (err, rows) => {
+    if (err) {
+      console.error('Error fetching inventory:', err);
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json(rows);
+  });
+});
+
+// Create a new part
+app.post('/api/inventory', (req, res) => {
+  const {
+    name,
+    category,
+    quantity,
+    minQuantity,
+    price,
+    supplier
+  } = req.body;
+
+  const sql = `
+    INSERT INTO inventory (
+      name,
+      category,
+      quantity,
+      minQuantity,
+      price,
+      supplier
+    ) VALUES (?, ?, ?, ?, ?, ?)
+  `;
+
+  db.run(
+    sql,
+    [name, category, quantity, minQuantity, price, supplier],
+    function(err) {
+      if (err) {
+        console.error('Error creating inventory item:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      db.get(
+        'SELECT * FROM inventory WHERE id = ?',
+        [this.lastID],
+        (err, row) => {
+          if (err) {
+            console.error('Error fetching created inventory item:', err);
+            res.status(500).json({ error: err.message });
+            return;
+          }
+          res.json(row);
+        }
+      );
+    }
+  );
+});
+
+// Update a part
+app.put('/api/inventory/:id', (req, res) => {
+  const {
+    name,
+    category,
+    quantity,
+    minQuantity,
+    price,
+    supplier
+  } = req.body;
+
+  const sql = `
+    UPDATE inventory SET 
+      name = ?,
+      category = ?,
+      quantity = ?,
+      minQuantity = ?,
+      price = ?,
+      supplier = ?
+    WHERE id = ?
+  `;
+
+  db.run(
+    sql,
+    [name, category, quantity, minQuantity, price, supplier, req.params.id],
+    (err) => {
+      if (err) {
+        console.error('Error updating inventory item:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      db.get(
+        'SELECT * FROM inventory WHERE id = ?',
+        [req.params.id],
+        (err, row) => {
+          if (err) {
+            console.error('Error fetching updated inventory item:', err);
+            res.status(500).json({ error: err.message });
+            return;
+          }
+          if (!row) {
+            res.status(404).json({ error: 'Inventory item not found' });
+            return;
+          }
+          res.json(row);
+        }
+      );
+    }
+  );
+});
+
+// Delete a part
+app.delete('/api/inventory/:id', (req, res) => {
+  db.run('DELETE FROM inventory WHERE id = ?', req.params.id, (err) => {
+    if (err) {
+      console.error('Error deleting inventory item:', err);
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json({ success: true, message: 'Inventory item deleted successfully' });
+  });
+});
+
+// ORDERS ENDPOINTS
+
+// Get all orders with vehicle and service info
+app.get('/api/orders', (req, res) => {
+  const sql = `
+    SELECT 
+      orders.*,
+      vehicles.make || ' ' || vehicles.model || ' (' || vehicles.licensePlate || ')' as vehicleInfo,
+      services.name as serviceName
+    FROM orders
+    LEFT JOIN vehicles ON orders.vehicleId = vehicles.id
+    LEFT JOIN services ON orders.serviceId = services.id
+    ORDER BY orders.date DESC
+  `;
+  
+  db.all(sql, [], (err, rows) => {
+    if (err) {
+      console.error('Error fetching orders:', err);
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json(rows);
+  });
+});
+
+// Create a new order
+app.post('/api/orders', (req, res) => {
+  const {
+    vehicleId,
+    serviceId,
+    date,
+    status,
+    totalPrice,
+    notes
+  } = req.body;
+
+  const sql = `
+    INSERT INTO orders (
+      vehicleId,
+      serviceId,
+      date,
+      status,
+      totalPrice,
+      notes
+    ) VALUES (?, ?, ?, ?, ?, ?)
+  `;
+
+  db.run(
+    sql,
+    [vehicleId, serviceId, date, status, totalPrice, notes],
+    function(err) {
+      if (err) {
+        console.error('Error creating order:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      const selectSql = `
+        SELECT 
+          orders.*,
+          vehicles.make || ' ' || vehicles.model || ' (' || vehicles.licensePlate || ')' as vehicleInfo,
+          services.name as serviceName
+        FROM orders
+        LEFT JOIN vehicles ON orders.vehicleId = vehicles.id
+        LEFT JOIN services ON orders.serviceId = services.id
+        WHERE orders.id = ?
+      `;
+
+      db.get(
+        selectSql,
+        [this.lastID],
+        (err, row) => {
+          if (err) {
+            console.error('Error fetching created order:', err);
+            res.status(500).json({ error: err.message });
+            return;
+          }
+          res.json(row);
+        }
+      );
+    }
+  );
+});
+
+// Update an order
+app.put('/api/orders/:id', (req, res) => {
+  const {
+    vehicleId,
+    serviceId,
+    date,
+    status,
+    totalPrice,
+    notes
+  } = req.body;
+
+  const sql = `
+    UPDATE orders SET 
+      vehicleId = ?,
+      serviceId = ?,
+      date = ?,
+      status = ?,
+      totalPrice = ?,
+      notes = ?
+    WHERE id = ?
+  `;
+
+  db.run(
+    sql,
+    [vehicleId, serviceId, date, status, totalPrice, notes, req.params.id],
+    (err) => {
+      if (err) {
+        console.error('Error updating order:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      const selectSql = `
+        SELECT 
+          orders.*,
+          vehicles.make || ' ' || vehicles.model || ' (' || vehicles.licensePlate || ')' as vehicleInfo,
+          services.name as serviceName
+        FROM orders
+        LEFT JOIN vehicles ON orders.vehicleId = vehicles.id
+        LEFT JOIN services ON orders.serviceId = services.id
+        WHERE orders.id = ?
+      `;
+
+      db.get(
+        selectSql,
+        [req.params.id],
+        (err, row) => {
+          if (err) {
+            console.error('Error fetching updated order:', err);
+            res.status(500).json({ error: err.message });
+            return;
+          }
+          if (!row) {
+            res.status(404).json({ error: 'Order not found' });
+            return;
+          }
+          res.json(row);
+        }
+      );
+    }
+  );
+});
+
+// Delete an order
+app.delete('/api/orders/:id', (req, res) => {
+  db.run('DELETE FROM orders WHERE id = ?', req.params.id, (err) => {
+    if (err) {
+      console.error('Error deleting order:', err);
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json({ success: true, message: 'Order deleted successfully' });
   });
 });
 
