@@ -30,6 +30,20 @@ const Services = () => {
     price: '',
   });
 
+  useEffect(() => {
+    fetchServices();
+  }, []);
+
+  const fetchServices = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/services');
+      const data = await response.json();
+      setServices(data);
+    } catch (error) {
+      console.error('Error fetching services:', error);
+    }  
+  };
+
   const handleOpen = () => {
     setOpen(true);
   };
@@ -45,14 +59,31 @@ const Services = () => {
     });
   };
 
-  const handleSave = () => {
-    // Add your save logic here
-    if (isEditing) {
-      // Update existing service
-    } else {
-      // Add new service
+  const handleSave = async () => {
+    try {
+      const url = isEditing 
+        ? `http://localhost:3001/api/services/${currentService.id}`
+        : 'http://localhost:3001/api/services';
+      
+      const method = isEditing ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(currentService),
+      });
+
+      if (response.ok) {
+        fetchServices();
+        handleClose();
+      } else {
+        console.error('Error saving service:', await response.text());
+      }
+    } catch (error) {
+      console.error('Error saving service:', error);
     }
-    handleClose();
   };
 
   const handleEdit = (service) => {
@@ -61,8 +92,22 @@ const Services = () => {
     setOpen(true);
   };
 
-  const handleDelete = (id) => {
-    // Add your delete logic here
+  const handleDelete = async (id) => {
+    if (window.confirm('Вы уверены, что хотите удалить эту услугу?')) {
+      try {
+        const response = await fetch(`http://localhost:3001/api/services/${id}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          fetchServices();
+        } else {
+          console.error('Error deleting service:', await response.text());
+        }
+      } catch (error) {
+        console.error('Error deleting service:', error);
+      }
+    }
   };
 
   return (

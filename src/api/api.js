@@ -3,7 +3,7 @@ const API_URL = 'http://localhost:3001/api';
 
 export const getProducts = async () => {
   try {
-    const response = await fetch(`${API_URL}/products`);
+    const response = await fetch(`${API_URL}/pages`);
     const data = await response.json();
     return data;
   } catch (error) {

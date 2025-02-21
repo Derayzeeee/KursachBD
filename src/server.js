@@ -19,10 +19,10 @@ const db = new sqlite3.Database(path.join(__dirname, 'database', 'service_statio
   }
 });
 
-// Database initialization with additional fields
+// Database initialization
 function initDatabase() {
   db.serialize(() => {
-    // Add created_by and updated_by fields
+    // Clients table
     db.run(`
       CREATE TABLE IF NOT EXISTS clients (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,6 +35,17 @@ function initDatabase() {
         created_by TEXT,
         updated_at DATETIME,
         updated_by TEXT
+      )
+    `);
+
+    // Services table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS services (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        duration REAL NOT NULL,
+        price REAL NOT NULL
       )
     `);
   });
@@ -51,6 +62,8 @@ function formatDate(dateString) {
     return null;
   }
 }
+
+// CLIENTS ENDPOINTS
 
 // Get all clients
 app.get('/api/clients', (req, res) => {
@@ -71,14 +84,11 @@ app.post('/api/clients', (req, res) => {
     phone, 
     email, 
     address, 
-    preferredContactMethod,
-    created_at,
-    created_by
+    preferredContactMethod 
   } = req.body;
 
-  // Format the date properly
-  const formattedCreatedAt = formatDate(created_at);
-  const currentUser = created_by || 'system';
+  const currentDate = formatDate(new Date().toISOString());
+  const currentUser = 'Derayzeeee';
 
   const sql = `
     INSERT INTO clients (
@@ -102,9 +112,9 @@ app.post('/api/clients', (req, res) => {
       email, 
       address, 
       preferredContactMethod,
-      formattedCreatedAt,
+      currentDate,
       currentUser,
-      formattedCreatedAt,
+      currentDate,
       currentUser
     ],
     function(err) {
@@ -114,7 +124,6 @@ app.post('/api/clients', (req, res) => {
         return;
       }
 
-      // Return the created client data
       db.get(
         'SELECT * FROM clients WHERE id = ?',
         [this.lastID],
@@ -139,13 +148,11 @@ app.put('/api/clients/:id', (req, res) => {
     email, 
     address, 
     preferredContactMethod,
-    created_at,
-    updated_by
+    created_at
   } = req.body;
 
-  const formattedCreatedAt = formatDate(created_at);
-  const currentUser = updated_by || 'system';
-  const updatedAt = formatDate(new Date().toISOString());
+  const currentDate = formatDate(new Date().toISOString());
+  const currentUser = 'Derayzeeee';
 
   const sql = `
     UPDATE clients SET 
@@ -168,8 +175,8 @@ app.put('/api/clients/:id', (req, res) => {
       email,
       address,
       preferredContactMethod,
-      formattedCreatedAt,
-      updatedAt,
+      created_at,
+      currentDate,
       currentUser,
       req.params.id
     ],
@@ -180,7 +187,6 @@ app.put('/api/clients/:id', (req, res) => {
         return;
       }
 
-      // Return the updated client data
       db.get(
         'SELECT * FROM clients WHERE id = ?',
         [req.params.id],
@@ -201,22 +207,6 @@ app.put('/api/clients/:id', (req, res) => {
   );
 });
 
-// Get client by ID
-app.get('/api/clients/:id', (req, res) => {
-  db.get('SELECT * FROM clients WHERE id = ?', [req.params.id], (err, row) => {
-    if (err) {
-      console.error('Error fetching client:', err);
-      res.status(500).json({ error: err.message });
-      return;
-    }
-    if (!row) {
-      res.status(404).json({ error: 'Client not found' });
-      return;
-    }
-    res.json(row);
-  });
-});
-
 // Delete a client
 app.delete('/api/clients/:id', (req, res) => {
   db.run('DELETE FROM clients WHERE id = ?', req.params.id, (err) => {
@@ -226,6 +216,124 @@ app.delete('/api/clients/:id', (req, res) => {
       return;
     }
     res.json({ success: true, message: 'Client deleted successfully' });
+  });
+});
+
+// SERVICES ENDPOINTS
+
+// Get all services
+app.get('/api/services', (req, res) => {
+  db.all('SELECT * FROM services', [], (err, rows) => {
+    if (err) {
+      console.error('Error fetching services:', err);
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json(rows);
+  });
+});
+
+// Create a new service
+app.post('/api/services', (req, res) => {
+  const { 
+    name, 
+    description, 
+    duration, 
+    price 
+  } = req.body;
+
+  const sql = `
+    INSERT INTO services (
+      name,
+      description,
+      duration,
+      price
+    ) VALUES (?, ?, ?, ?)
+  `;
+
+  db.run(
+    sql,
+    [name, description, duration, price],
+    function(err) {
+      if (err) {
+        console.error('Error creating service:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      db.get(
+        'SELECT * FROM services WHERE id = ?',
+        [this.lastID],
+        (err, row) => {
+          if (err) {
+            console.error('Error fetching created service:', err);
+            res.status(500).json({ error: err.message });
+            return;
+          }
+          res.json(row);
+        }
+      );
+    }
+  );
+});
+
+// Update a service
+app.put('/api/services/:id', (req, res) => {
+  const { 
+    name, 
+    description, 
+    duration, 
+    price 
+  } = req.body;
+
+  const sql = `
+    UPDATE services SET 
+      name = ?, 
+      description = ?, 
+      duration = ?, 
+      price = ?
+    WHERE id = ?
+  `;
+
+  db.run(
+    sql,
+    [name, description, duration, price, req.params.id],
+    (err) => {
+      if (err) {
+        console.error('Error updating service:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      db.get(
+        'SELECT * FROM services WHERE id = ?',
+        [req.params.id],
+        (err, row) => {
+          if (err) {
+            console.error('Error fetching updated service:', err);
+            res.status(500).json({ error: err.message });
+            return;
+          }
+          if (!row) {
+            res.status(404).json({ error: 'Service not found' });
+            return;
+          }
+          res.json(row);
+        }
+      );
+    }
+  );
+});
+
+// Delete a service
+app.delete('/api/services/:id', (req, res) => {
+  db.run('DELETE FROM services WHERE id = ?', req.params.id, (err) => {
+    if (err) {
+      console.error('Error deleting service:', err);
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json({ success: true, message: 'Service deleted successfully' });
   });
 });
 
