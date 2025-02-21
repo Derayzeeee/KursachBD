@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -32,6 +32,20 @@ const Vehicles = () => {
     clientId: ''
   });
 
+  useEffect(() => {
+        fetchVehicles();
+      }, []);
+    
+      const fetchVehicles = async () => {
+        try {
+          const response = await fetch('http://localhost:3001/api/vehicles');
+          const data = await response.json();
+          setVehicles(data);
+        } catch (error) {
+          console.error('Error fetching vehicles:', error);
+        }
+      };
+
   const handleOpen = () => {
     setOpen(true);
   };
@@ -49,14 +63,31 @@ const Vehicles = () => {
     });
   };
 
-  const handleSave = () => {
-    // Add your save logic here
-    if (isEditing) {
-      // Update existing vehicle
-    } else {
-      // Add new vehicle
+  const handleSave = async () => {
+    try {
+      const url = isEditing 
+        ? `http://localhost:3001/api/vehicles/${currentVehicle.id}`
+        : 'http://localhost:3001/api/vehicles';
+      
+      const method = isEditing ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(currentVehicle),
+      });
+
+      if (response.ok) {
+        fetchVehicles();
+        handleClose();
+      } else {
+        console.error('Error saving vehicles:', await response.text());
+      }
+    } catch (error) {
+      console.error('Error saving vehicles:', error);
     }
-    handleClose();
   };
 
   const handleEdit = (vehicle) => {
@@ -65,8 +96,22 @@ const Vehicles = () => {
     setOpen(true);
   };
 
-  const handleDelete = (id) => {
-    // Add your delete logic here
+  const handleDelete = async (id) => {
+    if (window.confirm('Вы уверены, что хотите удалить этот автомобиль?')) {
+      try {
+        const response = await fetch(`http://localhost:3001/api/vehicles/${id}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          fetchVehicles();
+        } else {
+          console.error('Error deleting vehicle:', await response.text());
+        }
+      } catch (error) {
+        console.error('Error deleting vehicle:', error);
+      }
+    }
   };
 
   return (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -36,6 +36,20 @@ const Orders = () => {
     notes: ''
   });
 
+  useEffect(() => {
+      fetchOrders();
+    }, []);
+  
+    const fetchOrders = async () => {
+      try {
+        const response = await fetch('http://localhost:3001/api/orders');
+        const data = await response.json();
+        setOrders(data);
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+      }
+    };
+
   const handleOpen = () => {
     setOpen(true);
   };
@@ -53,14 +67,31 @@ const Orders = () => {
     });
   };
 
-  const handleSave = () => {
-    // Add your save logic here
-    if (isEditing) {
-      // Update existing order
-    } else {
-      // Add new order
+  const handleSave = async () => {
+    try {
+      const url = isEditing 
+        ? `http://localhost:3001/api/orders/${currentOrder.id}`
+        : 'http://localhost:3001/api/orders';
+      
+      const method = isEditing ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(currentOrder),
+      });
+
+      if (response.ok) {
+        fetchOrders();
+        handleClose();
+      } else {
+        console.error('Error saving order:', await response.text());
+      }
+    } catch (error) {
+      console.error('Error saving orders:', error);
     }
-    handleClose();
   };
 
   const handleEdit = (order) => {
@@ -69,8 +100,22 @@ const Orders = () => {
     setOpen(true);
   };
 
-  const handleDelete = (id) => {
-    // Add your delete logic here
+  const handleDelete = async (id) => {
+    if (window.confirm('Вы уверены, что хотите удалить этот заказ?')) {
+      try {
+        const response = await fetch(`http://localhost:3001/api/orders/${id}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          fetchOrders();
+        } else {
+          console.error('Error deleting order:', await response.text());
+        }
+      } catch (error) {
+        console.error('Error deleting order:', error);
+      }
+    }
   };
 
   return (

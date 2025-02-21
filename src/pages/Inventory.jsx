@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -33,6 +33,20 @@ const Inventory = () => {
     supplier: ''
   });
 
+  useEffect(() => {
+      fetchInventory();
+    }, []);
+  
+    const fetchInventory = async () => {
+      try {
+        const response = await fetch('http://localhost:3001/api/inventory');
+        const data = await response.json();
+        setParts(data);
+      } catch (error) {
+        console.error('Error fetching parts:', error);
+      }
+    };
+
   const handleOpen = () => {
     setOpen(true);
   };
@@ -50,14 +64,31 @@ const Inventory = () => {
     });
   };
 
-  const handleSave = () => {
-    // Add your save logic here
-    if (isEditing) {
-      // Update existing part
-    } else {
-      // Add new part
+  const handleSave = async () => {
+    try {
+      const url = isEditing 
+        ? `http://localhost:3001/api/inventory/${currentPart.id}`
+        : 'http://localhost:3001/api/inventory';
+      
+      const method = isEditing ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(currentPart),
+      });
+
+      if (response.ok) {
+        fetchInventory();
+        handleClose();
+      } else {
+        console.error('Error saving parts:', await response.text());
+      }
+    } catch (error) {
+      console.error('Error saving parts:', error);
     }
-    handleClose();
   };
 
   const handleEdit = (part) => {
@@ -66,8 +97,22 @@ const Inventory = () => {
     setOpen(true);
   };
 
-  const handleDelete = (id) => {
-    // Add your delete logic here
+  const handleDelete = async (id) => {
+    if (window.confirm('Вы уверены, что хотите удалить эту запчасть?')) {
+      try {
+        const response = await fetch(`http://localhost:3001/api/parts/${id}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          fetchInventory();
+        } else {
+          console.error('Error deleting part:', await response.text());
+        }
+      } catch (error) {
+        console.error('Error deleting part:', error);
+      }
+    }
   };
 
   const getStockStatus = (quantity, minQuantity) => {
