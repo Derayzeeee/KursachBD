@@ -22,11 +22,15 @@ import {
   InputLabel
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
+import * as XLSX from 'xlsx';
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [actionType, setActionType] = useState('default');
   const [currentOrder, setCurrentOrder] = useState({
     vehicleId: '',
     serviceId: '',
@@ -100,6 +104,112 @@ const Orders = () => {
     setOpen(true);
   };
 
+  const handleExport = async () => {
+    try {
+      const dataToExport = orders.map(order => ({
+        '№ Заказа': order.id,
+        'Автомобиль': order.vehicleId,
+        'Услуга': order.serviceId,
+        'Дата': new Date(order.date).toLocaleDateString(),
+        'Статус': order.status,
+        'Сумма': order.totalPrice,
+        'Примечания': order.notes
+      }));
+  
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+  
+      XLSX.utils.book_append_sheet(wb, ws, 'Заказы');
+      XLSX.writeFile(wb, `orders_export_${new Date().toLocaleDateString()}.xlsx`);
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      alert('Ошибка при экспорте данных');
+    }
+  };
+  
+  const handleImport = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xlsx, .xls';
+    
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          try {
+            const workbook = XLSX.read(event.target.result, { type: 'binary' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const importedData = XLSX.utils.sheet_to_json(worksheet);
+  
+            const formattedData = importedData.map(item => ({
+              vehicleId: item['Автомобиль'],
+              serviceId: item['Услуга'],
+              date: item['Дата'],
+              status: item['Статус'],
+              totalPrice: item['Сумма'],
+              notes: item['Примечания']
+            }));
+  
+            for (const order of formattedData) {
+              await fetch('http://localhost:3001/api/orders', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(order),
+              });
+            }
+            
+            await fetchOrders();
+            alert('Импорт успешно завершен');
+          } catch (error) {
+            console.error('Ошибка при импорте:', error);
+            alert('Ошибка при импорте данных');
+          }
+        };
+        reader.readAsBinaryString(file);
+      }
+    };
+  
+    input.click();
+  };
+  
+  const handleActionChange = async (event) => {
+    const action = event.target.value;
+    setActionType(action);
+  
+    try {
+      switch (action) {
+        case 'add':
+          handleOpen();
+          break;
+        case 'export':
+          await handleExport();
+          break;
+        case 'import':
+          await handleImport();
+          break;
+      }
+    } finally {
+      setTimeout(() => {
+        setActionType('default');
+      }, 100);
+    }
+  };
+
+  // Добавьте эту функцию в компонент Orders
+const getStatusInRussian = (status) => {
+  const statusMap = {
+    'pending': 'В ожидании',
+    'in_progress': 'В работе',
+    'completed': 'Завершен',
+    'cancelled': 'Отменен'
+  };
+  return statusMap[status] || status;
+};
+
   const handleDelete = async (id) => {
     if (window.confirm('Вы уверены, что хотите удалить этот заказ?')) {
       try {
@@ -122,13 +232,34 @@ const Orders = () => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h4">Заказы</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleOpen}
+        <Select
+          value={actionType}
+          onChange={handleActionChange}
+          size="small"
+          sx={{ width: 200 }}
+          displayEmpty
+          renderValue={(selected) => "Функции"}
         >
-          Новый заказ
-        </Button>
+          <MenuItem value="default" disabled>Функции</MenuItem>
+          <MenuItem value="add">
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <AddIcon sx={{ mr: 1 }} />
+              Новый заказ
+            </Box>
+          </MenuItem>
+          <MenuItem value="export">
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <FileDownloadIcon sx={{ mr: 1 }} />
+              Экспорт в Excel
+            </Box>
+          </MenuItem>
+          <MenuItem value="import">
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <FileUploadIcon sx={{ mr: 1 }} />
+              Импорт из Excel
+            </Box>
+          </MenuItem>
+        </Select>
       </Box>
 
       <TableContainer component={Paper}>
@@ -141,6 +272,7 @@ const Orders = () => {
               <TableCell>Дата</TableCell>
               <TableCell>Статус</TableCell>
               <TableCell>Сумма</TableCell>
+              <TableCell>Примечания</TableCell>
               <TableCell>Действия</TableCell>
             </TableRow>
           </TableHead>
@@ -150,9 +282,10 @@ const Orders = () => {
                 <TableCell>{order.id}</TableCell>
                 <TableCell>{order.vehicleInfo}</TableCell>
                 <TableCell>{order.serviceName}</TableCell>
-                <TableCell>{order.date}</TableCell>
-                <TableCell>{order.status}</TableCell>
+                <TableCell>{new Date(order.date).toLocaleDateString('ru-RU')}</TableCell>
+                <TableCell>{getStatusInRussian(order.status)}</TableCell>
                 <TableCell>{order.totalPrice}</TableCell>
+                <TableCell>{order.notes}</TableCell>
                 <TableCell>
                   <IconButton onClick={() => handleEdit(order)}>
                     <EditIcon />

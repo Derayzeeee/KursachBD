@@ -3,11 +3,6 @@ import {
   Box,
   Typography,
   Button,
-  TextField,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Table,
   TableBody,
   TableCell,
@@ -15,43 +10,140 @@ import {
   TableHead,
   TableRow,
   Paper,
-  IconButton
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  IconButton,
+  Select,
+  MenuItem,
 } from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
+import * as XLSX from 'xlsx';
 
 const Vehicles = () => {
   const [vehicles, setVehicles] = useState([]);
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [actionType, setActionType] = useState('default');
   const [currentVehicle, setCurrentVehicle] = useState({
     make: '',
     model: '',
     year: '',
     licensePlate: '',
     vin: '',
-    clientId: ''
+    clientId: '',
+    clientName: ''
   });
 
   useEffect(() => {
-        fetchVehicles();
-      }, []);
-    
-      const fetchVehicles = async () => {
-        try {
-          const response = await fetch('http://localhost:3001/api/vehicles');
-          const data = await response.json();
-          setVehicles(data);
-        } catch (error) {
-          console.error('Error fetching vehicles:', error);
-        }
-      };
+    fetchVehicles();
+  }, []);
 
-  const handleOpen = () => {
-    setOpen(true);
+  const fetchVehicles = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/vehicles');
+      if (response.ok) {
+        const data = await response.json();
+        setVehicles(data);
+      } else {
+        console.error('Error fetching data:', await response.text());
+      }
+    } catch (error) {
+      console.error('Error fetching vehicles:', error);
+    }
   };
 
-  const handleClose = () => {
-    setOpen(false);
+  const handleExport = async () => {
+    try {
+      const dataToExport = vehicles.map(vehicle => ({
+        'Марка': vehicle.make,
+        'Модель': vehicle.model,
+        'Год': vehicle.year,
+        'Гос. номер': vehicle.licensePlate,
+        'VIN': vehicle.vin,
+        'ID клиента': vehicle.clientId,
+        'Клиент': vehicle.clientName
+      }));
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+
+      // Настройка ширины столбцов
+      const wscols = [
+        { wch: 20 }, // Марка
+        { wch: 20 }, // Модель
+        { wch: 10 }, // Год
+        { wch: 15 }, // Гос. номер
+        { wch: 25 }, // VIN
+        { wch: 15 }, // ID клиента
+        { wch: 30 }  // Клиент
+      ];
+      ws['!cols'] = wscols;
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Автомобили');
+      XLSX.writeFile(wb, `vehicles_export_${new Date().toLocaleDateString()}.xlsx`);
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      alert('Ошибка при экспорте данных');
+    }
+  };
+
+  const handleImport = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xlsx, .xls';
+    
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          try {
+            const workbook = XLSX.read(event.target.result, { type: 'binary' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const importedData = XLSX.utils.sheet_to_json(worksheet);
+
+            const formattedData = importedData.map(item => ({
+              make: item['Марка'],
+              model: item['Модель'],
+              year: Number(item['Год']),
+              licensePlate: item['Гос. номер'],
+              vin: item['VIN'],
+              clientId: item['ID клиента']
+            }));
+
+            for (const vehicle of formattedData) {
+              await fetch('http://localhost:3001/api/vehicles', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(vehicle),
+              });
+            }
+            
+            await fetchVehicles();
+            alert('Импорт успешно завершен');
+          } catch (error) {
+            console.error('Ошибка при импорте:', error);
+            alert('Ошибка при импорте данных');
+          }
+        };
+        reader.readAsBinaryString(file);
+      }
+    };
+
+    input.click();
+  };
+
+  const handleOpen = () => {
     setIsEditing(false);
     setCurrentVehicle({
       make: '',
@@ -59,20 +151,40 @@ const Vehicles = () => {
       year: '',
       licensePlate: '',
       vin: '',
-      clientId: ''
+      clientId: '',
+      clientName: ''
     });
+    setOpen(true);
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+    setCurrentVehicle({
+      make: '',
+      model: '',
+      year: '',
+      licensePlate: '',
+      vin: '',
+      clientId: '',
+      clientName: ''
+    });
+    setActionType('default');
+  };
+
+  const handleEdit = (vehicle) => {
+    setCurrentVehicle(vehicle);
+    setIsEditing(true);
+    setOpen(true);
   };
 
   const handleSave = async () => {
     try {
-      const url = isEditing 
+      const url = isEditing
         ? `http://localhost:3001/api/vehicles/${currentVehicle.id}`
         : 'http://localhost:3001/api/vehicles';
       
-      const method = isEditing ? 'PUT' : 'POST';
-      
       const response = await fetch(url, {
-        method,
+        method: isEditing ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -80,20 +192,15 @@ const Vehicles = () => {
       });
 
       if (response.ok) {
-        fetchVehicles();
+        await fetchVehicles();
         handleClose();
       } else {
-        console.error('Error saving vehicles:', await response.text());
+        alert('Ошибка при сохранении данных');
       }
     } catch (error) {
-      console.error('Error saving vehicles:', error);
+      console.error('Error saving vehicle:', error);
+      alert('Ошибка при сохранении данных');
     }
-  };
-
-  const handleEdit = (vehicle) => {
-    setCurrentVehicle(vehicle);
-    setIsEditing(true);
-    setOpen(true);
   };
 
   const handleDelete = async (id) => {
@@ -104,13 +211,37 @@ const Vehicles = () => {
         });
 
         if (response.ok) {
-          fetchVehicles();
+          await fetchVehicles();
         } else {
-          console.error('Error deleting vehicle:', await response.text());
+          alert('Ошибка при удалении автомобиля');
         }
       } catch (error) {
         console.error('Error deleting vehicle:', error);
+        alert('Ошибка при удалении автомобиля');
       }
+    }
+  };
+
+  const handleActionChange = async (event) => {
+    const action = event.target.value;
+    setActionType(action);
+
+    try {
+      switch (action) {
+        case 'add':
+          handleOpen();
+          break;
+        case 'export':
+          await handleExport();
+          break;
+        case 'import':
+          await handleImport();
+          break;
+      }
+    } finally {
+      setTimeout(() => {
+        setActionType('default');
+      }, 100);
     }
   };
 
@@ -118,13 +249,34 @@ const Vehicles = () => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h4">Автомобили</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleOpen}
+        <Select
+          value={actionType}
+          onChange={handleActionChange}
+          size="small"
+          sx={{ width: 200 }}
+          displayEmpty
+          renderValue={(selected) => "Функции"}
         >
-          Добавить автомобиль
-        </Button>
+          <MenuItem value="default" disabled>Функции</MenuItem>
+          <MenuItem value="add">
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <AddIcon sx={{ mr: 1 }} />
+              Добавить автомобиль
+            </Box>
+          </MenuItem>
+          <MenuItem value="export">
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <FileDownloadIcon sx={{ mr: 1 }} />
+              Экспорт в Excel
+            </Box>
+          </MenuItem>
+          <MenuItem value="import">
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <FileUploadIcon sx={{ mr: 1 }} />
+              Импорт из Excel
+            </Box>
+          </MenuItem>
+        </Select>
       </Box>
 
       <TableContainer component={Paper}>
@@ -150,10 +302,10 @@ const Vehicles = () => {
                 <TableCell>{vehicle.vin}</TableCell>
                 <TableCell>{vehicle.clientName}</TableCell>
                 <TableCell>
-                  <IconButton onClick={() => handleEdit(vehicle)}>
+                  <IconButton onClick={() => handleEdit(vehicle)} title="Редактировать">
                     <EditIcon />
                   </IconButton>
-                  <IconButton onClick={() => handleDelete(vehicle.id)}>
+                  <IconButton onClick={() => handleDelete(vehicle.id)} title="Удалить">
                     <DeleteIcon />
                   </IconButton>
                 </TableCell>
@@ -163,9 +315,9 @@ const Vehicles = () => {
         </Table>
       </TableContainer>
 
-      <Dialog open={open} onClose={handleClose}>
+      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle>
-          {isEditing ? 'Редактировать автомобиль' : 'Добавить новый автомобиль'}
+          {isEditing ? 'Редактировать автомобиль' : 'Добавить автомобиль'}
         </DialogTitle>
         <DialogContent>
           <TextField
@@ -186,8 +338,8 @@ const Vehicles = () => {
           <TextField
             margin="dense"
             label="Год выпуска"
-            fullWidth
             type="number"
+            fullWidth
             value={currentVehicle.year}
             onChange={(e) => setCurrentVehicle({ ...currentVehicle, year: e.target.value })}
           />
