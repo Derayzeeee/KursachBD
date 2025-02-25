@@ -5,7 +5,7 @@ import '@fontsource/nunito'; // Импортируем шрифт Nunito
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#2E7D32', // насыщенный зеленый (основной)
+      main: '#afcbe3', // насыщенный зеленый (основной)
     },
     secondary: {
       main: '#FFC107', // теплый желтый (акцентный)

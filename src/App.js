@@ -31,7 +31,7 @@ import Orders from './pages/Orders';
 import Inventory from './pages/Inventory';
 import Logo from './components/Logo';
 
-const activeGreen = '#4CAF50';
+const activeGreen = '#191bdf';
 const inactiveGray = '#757575';
 
 function Navigation({ menuItems, isMobile, handleDrawerClose }) {
